@@ -7,6 +7,9 @@
 # Stage 3: Final minimal image
 # =============================================================================
 
+# 在最顶部声明并指定默认值
+ARG BUILDPLATFORM=linux/amd64
+
 ARG NODE_IMAGE=node:24-alpine
 ARG GOLANG_IMAGE=golang:1.27.0-alpine
 ARG ALPINE_IMAGE=alpine:3.21
