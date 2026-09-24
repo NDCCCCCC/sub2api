@@ -7,6 +7,8 @@
 # Stage 3: Final minimal image
 # =============================================================================
 
+# syntax=docker/dockerfile:1
+
 # 在最顶部声明并指定默认值
 ARG BUILDPLATFORM=linux/amd64
 
