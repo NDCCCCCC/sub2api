@@ -265,6 +265,29 @@ func openDesignPickWorkspace(items []struct {
 	return best, nil
 }
 
+// opendesignSessionInfoPayload 是 better-auth 会话信息（用于读取到期时间）。
+// GET /api/auth/get-session 返回 {session:{expiresAt,createdAt,updatedAt,...},user:{...}}。
+type opendesignSessionInfoPayload struct {
+	Session struct {
+		ExpiresAt string `json:"expiresAt"`
+		CreatedAt string `json:"createdAt"`
+	} `json:"session"`
+}
+
+// fetchSessionExpiry 读取控制台会话的到期时间（better-auth 7 天滑动续期）。
+// 失败不阻塞额度探测：只影响前端「会话到期提醒」，不影响窗口读数。
+func (c *opendesignUsageClient) fetchSessionExpiry(ctx context.Context) string {
+	var info opendesignSessionInfoPayload
+	if err := c.get(ctx, "/api/auth/get-session", &info); err != nil {
+		return ""
+	}
+	expiresAt := strings.TrimSpace(info.Session.ExpiresAt)
+	if expiresAt == "" {
+		return ""
+	}
+	return cnNormalizeResetTime(expiresAt)
+}
+
 // fetch 取窗口与钱包；workspace 未配置时自动发现。summary 失败不阻塞（钱包是展示性数据）。
 func (c *opendesignUsageClient) fetch(ctx context.Context) (*opendesignUsagePayload, *opendesignSummaryPayload, error) {
 	workspace, err := c.resolveWorkspace(ctx)
@@ -370,10 +393,14 @@ func opendesignBalanceResult(summary *opendesignSummaryPayload, now time.Time) *
 	return result
 }
 
-// opendesignUsageExtraUpdates 构造窗口 + 余额快照；缺席的窗口写 nil（套餐变化后
-// 不沿用旧快照），summary 失败保留旧余额。usage 为 nil 时只写余额。
-func opendesignUsageExtraUpdates(usage *opendesignUsagePayload, summary *opendesignSummaryPayload, tiers []CNQuotaTier, balance *CNProviderBalanceResult, now time.Time) map[string]any {
+// opendesignUsageExtraUpdates 构造窗口 + 余额 + 会话到期快照；缺席的窗口写 nil
+// （套餐变化后不沿用旧快照），summary 失败保留旧余额。usage 为 nil 时只写余额。
+// sessionExpiresAt 为控制台会话到期时间（RFC3339，空值不写），供前端提示重新粘贴。
+func opendesignUsageExtraUpdates(usage *opendesignUsagePayload, summary *opendesignSummaryPayload, tiers []CNQuotaTier, balance *CNProviderBalanceResult, sessionExpiresAt string, now time.Time) map[string]any {
 	updates := cnBalanceExtraUpdates(PlatformOpenDesign, balance, now)
+	if sessionExpiresAt != "" {
+		updates[cnExtraKey(PlatformOpenDesign, "console_session_expires_at")] = sessionExpiresAt
+	}
 	if summary != nil {
 		if balanceValue, ok := opendesignCreditsToNumber(firstNonEmpty(summary.BalanceUsd, summary.TotalAvailableCreditsUsd)); ok {
 			updates[cnExtraKey(PlatformOpenDesign, opendesignExtraSuffixBalance)] = balanceValue
@@ -466,7 +493,9 @@ func (s *CNProviderQuotaService) queryOpenDesignUsage(ctx context.Context, accou
 	result.Success = true
 	result.CredentialValid = true
 
-	updates := opendesignUsageExtraUpdates(usage, summary, tiers, balance, now)
+	// 会话到期时间（better-auth 7 天滑动续期）；取不到不影响窗口读数。
+	sessionExpiresAt := client.fetchSessionExpiry(ctx)
+	updates := opendesignUsageExtraUpdates(usage, summary, tiers, balance, sessionExpiresAt, now)
 	if err := s.accountRepo.UpdateExtra(ctx, account.ID, updates); err != nil {
 		slog.Warn("cn_quota_persist_failed", "account_id", account.ID, "provider", PlatformOpenDesign, "error", err)
 	} else {
@@ -502,7 +531,7 @@ func (s *CNProviderBalanceService) queryOpenDesignBalance(ctx context.Context, a
 		}, nil
 	}
 	result := opendesignBalanceResult(summary, now)
-	if err := s.accountRepo.UpdateExtra(ctx, account.ID, opendesignUsageExtraUpdates(nil, summary, nil, result, now)); err != nil {
+	if err := s.accountRepo.UpdateExtra(ctx, account.ID, opendesignUsageExtraUpdates(nil, summary, nil, result, "", now)); err != nil {
 		slog.Warn("cn_balance_persist_failed", "account_id", account.ID, "provider", PlatformOpenDesign, "error", err)
 	} else {
 		result.Persisted = true
