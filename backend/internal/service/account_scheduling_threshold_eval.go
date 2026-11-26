@@ -59,7 +59,11 @@ func EvaluateAccountSchedulingThreshold(account *Account, thresholds map[string]
 	case PlatformGrok:
 		winner = pickLatestResetSchedulingCandidate(grokThresholdCandidates(account), threshold, now)
 	case PlatformKimi, PlatformZhipu, PlatformMiniMax, PlatformOpenCodeGo, PlatformCommandCode, PlatformOpenDesign:
-		winner = pickLatestResetSchedulingCandidate(cnProviderThresholdCandidates(account, decision.Platform), threshold, now)
+		// 套餐类平台按窗口独立判定：任一窗口达到阈值即停到该窗口自己的重置时间，
+		// 取命中窗口里最早的重置（5h + weekly 同时超阈值时先停到 5h 重置，恢复后
+		// 若 weekly 仍超阈值会立即续停到 weekly 重置）。这与 openai/anthropic/grok
+		// 的「取最晚重置」保守策略不同，后者不会被 5h 重置提前放行。
+		winner = pickEarliestResetSchedulingCandidate(cnProviderThresholdCandidates(account, decision.Platform), threshold, now)
 	default:
 		return decision
 	}
@@ -411,6 +415,28 @@ func cnThresholdCandidate(extra map[string]any, provider, window string) *accoun
 		usedPercent: schedulingPercentValue(usedPercent),
 		until:       parseSchedulingResetAt(extra[resetKey]),
 	}
+}
+
+// pickEarliestResetSchedulingCandidate 与 pickLatestResetSchedulingCandidate 相反，
+// 选中命中阈值且重置时间最早的窗口：套餐类平台（kimi/zhipu/minimax/opencode/command
+// code/opendesign）的 5h 与 weekly 窗口各自独立配额，5h 重置后即可继续使用 5h 额度，
+// 因此先停到最早的窗口重置；恢复后若更宽的窗口仍超阈值，下一轮评估会立即续停。
+func pickEarliestResetSchedulingCandidate(candidates []*accountSchedulingThresholdCandidate, threshold int, now time.Time) *accountSchedulingThresholdCandidate {
+	var winner *accountSchedulingThresholdCandidate
+	for _, candidate := range candidates {
+		if !candidateMatchesThreshold(candidate, threshold, now) {
+			continue
+		}
+		if winner == nil || candidate.until.Before(*winner.until) {
+			winner = candidate
+			continue
+		}
+		// 同重置时间时取用量更高的窗口，让停调原因更有说服力。
+		if winner.until.Equal(*candidate.until) && candidate.usedPercent > winner.usedPercent {
+			winner = candidate
+		}
+	}
+	return winner
 }
 
 func pickLatestResetSchedulingCandidate(candidates []*accountSchedulingThresholdCandidate, threshold int, now time.Time) *accountSchedulingThresholdCandidate {

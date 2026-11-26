@@ -1,0 +1,19 @@
+feat(scheduling): let plan-tier platforms configure account auto-pause thresholds
+
+GLM / MiniMax / OpenCode / Command Code / OpenDesign expose 5h and 7d plan
+windows, but only OpenAI / Anthropic / Grok could configure the auto-pause
+threshold — in the system settings page and in the per-account override.
+
+- backend: add PlatformOpenDesign to AllowedSchedulingThresholdPlatforms so the
+  already-present OpenDesign evaluator branch is reachable and the settings
+  validator accepts it (default map untouched: still opt-in 100)
+- evaluator: plan-tier platforms now pick the EARLIEST matching window reset
+  instead of the latest, so exceeding 50% of 5h resumes after the 5h reset
+  while a still-exceeded 7d window re-pauses immediately on the next pass.
+  OpenAI/Anthropic/Grok keep the conservative latest-reset behaviour.
+- frontend: SCHEDULING_THRESHOLD_PLATFORMS gains opendesign; the account edit
+  modal derives its override platform set from that single list (no more
+  3-platform hardcode); the create-account modal offers the same override.
+- i18n: settings copy no longer claims OpenAI/Anthropic/Grok only.
+- tests: backend (whitelist/parse/evaluator incl. earliest-reset + override
+  precedence) and frontend (threshold map, edit-modal per-platform override).

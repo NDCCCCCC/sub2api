@@ -44,11 +44,14 @@ export type SchedulingThresholdPlatformType =
   | "minimax"
   | "opencode_go"
   | "command_code"
+  | "opendesign"
 
 export type AccountSchedulingThresholdsMap = Record<SchedulingThresholdPlatformType, number>
 
 // 与后端 AllowedSchedulingThresholdPlatforms 保持一致（deepseek 为余额型，
-// 走余额检测而非用量阈值；minimax Coding/Token Plan、OpenCode GO 与 Command Code 有滚动窗口）。
+// 走余额检测而非用量阈值；minimax Coding/Token Plan、OpenCode GO、Command Code
+// 与 OpenDesign 有滚动窗口）。账号编辑页的账号级覆盖也从这里取平台，避免再出现
+// 前端入口与后端白名单不一致。
 export const SCHEDULING_THRESHOLD_PLATFORMS: SchedulingThresholdPlatformType[] = [
   "openai",
   "anthropic",
@@ -58,6 +61,7 @@ export const SCHEDULING_THRESHOLD_PLATFORMS: SchedulingThresholdPlatformType[] =
   "minimax",
   "opencode_go",
   "command_code",
+  "opendesign",
 ]
 
 export function normalizeAccountSchedulingThresholdsMap(
