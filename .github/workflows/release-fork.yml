@@ -1,0 +1,81 @@
+name: Release (fork)
+
+# Fork 自有发布流：tag fork-v* 触发。上游 release.yml（tag v*）保持原样不触发，
+# 也不修改它（降低合并冲突面）。本 workflow 用仓库自带多阶段 Dockerfile 构建镜像
+# （Stage1 pnpm 前端 + Stage2 go build -tags embed，VERSION 由 fork tag 派生），
+# 推送到 GHCR ghcr.io/<owner>/sub2api：
+#   - fork-v0.2.25-1  -> 0.2.25-1
+#   - 每次推送同时更新 latest-fork
+on:
+  push:
+    tags:
+      - 'fork-v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing fork-v* tag'
+        required: false
+        type: string
+
+concurrency:
+  group: release-fork-${{ github.repository }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve tag
+        id: tag
+        run: echo "tag=${{ github.event_name == 'push' && github.ref_name || inputs.tag }}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.tag.outputs.tag }}
+          fetch-depth: 0
+
+      # VERSION 注入：fork-<tag> 形式（构建参数），管理面板版本号可辨识、不与上游混淆。
+      # Dockerfile 的 VERSION 优先级：CI 传参 > git tag > VERSION 文件；fork tag 非 v*
+      # 前缀，git tag 解析不生效，这里显式传 Go 构建参数等价物——写入 VERSION 文件。
+      - name: Prepare version file
+        run: |
+          VERSION="${TAG#fork-v}"
+          echo "${VERSION}-fork" > backend/cmd/server/VERSION
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+
+      - uses: docker/setup-buildx-action@v3
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest-fork
+            type=match,pattern=fork-v(.*),group=1
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
