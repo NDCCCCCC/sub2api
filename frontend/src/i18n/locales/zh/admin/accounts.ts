@@ -372,7 +372,7 @@ export default {
         windowWeekly: '7d',
         windowMonthly: '月',
         probe: '查询',
-        probeTooltip: '请求供应商额度端点，查询 5 小时 / 每周滚动窗口用量',
+        probeTooltip: '一次性查询额度窗口与余额（同一账号的两个端点合并为一个按钮）',
         balanceProbeTooltip: '请求供应商余额端点，查询账户余额',
         balanceLow: '余额不足',
         noBalanceEndpoint: '该平台暂无余额查询接口',

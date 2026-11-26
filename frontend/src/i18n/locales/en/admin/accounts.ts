@@ -159,7 +159,7 @@ export default {
         windowWeekly: '7d',
         windowMonthly: '30d',
         probe: 'Query',
-        probeTooltip: 'Query the provider quota endpoint for 5-hour / weekly rolling window usage',
+        probeTooltip: 'Query quota windows and balance for this account in one click',
         balanceProbeTooltip: 'Query the provider balance endpoint for the account balance',
         balanceLow: 'Insufficient balance',
         noBalanceEndpoint: 'This platform has no balance query endpoint',

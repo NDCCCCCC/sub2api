@@ -532,15 +532,13 @@
         @updated="handleOpenCodeGoUsageUpdated"
       />
       <div v-else class="space-y-1">
-        <!-- 子单元格各自按 模式×平台 判定可见；两者都不可见时（智谱 payg 无公开
-             余额端点、coding 探测也不适用）才回落到占位符。 -->
+        <!-- 合并单元格：额度窗口与余额同属一个供应商账号，共用一个查询按钮。 -->
         <div
           v-if="!cnQuotaCellVisible && !cnBalanceCellVisible"
           class="text-xs text-gray-400"
           :title="t('admin.accounts.cnProviders.noBalanceEndpoint')"
         >-</div>
-        <CNProviderQuotaCell :account="account" />
-        <CNProviderBalanceCell :account="account" />
+        <CNProviderUsageCell :account="account" />
       </div>
     </template>
 
@@ -782,8 +780,7 @@ import AccountQuotaInfo from './AccountQuotaInfo.vue'
 import ClaudeResetCreditsCell from './ClaudeResetCreditsCell.vue'
 import OpenAIQuotaResetCell from './OpenAIQuotaResetCell.vue'
 import GrokQuotaProbeCell from './GrokQuotaProbeCell.vue'
-import CNProviderQuotaCell from './CNProviderQuotaCell.vue'
-import CNProviderBalanceCell from './CNProviderBalanceCell.vue'
+import CNProviderUsageCell from './CNProviderUsageCell.vue'
 import OllamaCloudUsageCell from './OllamaCloudUsageCell.vue'
 import {
   cnQuotaCellVisible as cnQuotaCellVisibleFn,
@@ -891,8 +888,8 @@ const shouldFetchUsage = computed(() => {
   return false
 })
 
-// CN 供应商子单元格可见性（与 CNProviderQuotaCell / CNProviderBalanceCell 共用
-// credentialsBuilder 的单一实现）：都不可见时显示 `-` 占位符。
+// CN 供应商合并单元格可见性（与 CNProviderUsageCell 共用 credentialsBuilder 的
+// 单一实现）：额度窗口与余额都不可见时显示 `-` 占位符。
 const cnQuotaCellVisible = computed(() => cnQuotaCellVisibleFn(props.account))
 const cnBalanceCellVisible = computed(() => cnBalanceCellVisibleFn(props.account))
 

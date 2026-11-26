@@ -1,0 +1,17 @@
+feat(ui): merge CN provider quota + balance cells into one usage cell
+
+The account list showed two separate "查询" buttons for one supplier account
+(coding-plan quota windows and payg balance). Users read that as two probes
+and each click spent an extra upstream request.
+
+- New CNProviderUsageCell renders quota tiers and balance in one cell with a
+  single query button that fires both endpoints in parallel
+  (Promise.allSettled), so one failed side keeps the other side's fresh data
+  and only reports its own error
+- Quota-only accounts (zhipu/kimi coding, opencode, command code, opendesign)
+  and balance-only accounts (kimi/deepseek payg) still render just their
+  applicable part
+- Snapshot-staleness auto-probe merges both timestamps; the shared
+  probe coalescing/debounce behaviour is preserved
+- Deletes CNProviderQuotaCell.vue / CNProviderBalanceCell.vue and folds their
+  specs into CNProviderUsageCell.spec.ts (11 cases covering both sides)

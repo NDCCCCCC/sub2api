@@ -104,11 +104,8 @@ const cnUsageCellStubs = {
     props: ['account'],
     template: '<div data-test="opencode-go-cell" />'
   },
-  CNProviderQuotaCell: {
-    template: '<div data-test="cn-quota-cell" />'
-  },
-  CNProviderBalanceCell: {
-    template: '<div data-test="cn-balance-cell" />'
+  CNProviderUsageCell: {
+    template: '<div data-test="cn-usage-cell" />'
   }
 }
 
@@ -281,8 +278,7 @@ describe('AccountUsageCell', () => {
       await flushPromises()
 
       expect(wrapper.find('[data-test="embedded-ollama"]').exists()).toBe(true)
-      expect(wrapper.find('[data-test="cn-quota-cell"]').exists()).toBe(false)
-      expect(wrapper.find('[data-test="cn-balance-cell"]').exists()).toBe(false)
+      expect(wrapper.find('[data-test="cn-usage-cell"]').exists()).toBe(false)
       expect(wrapper.find('div[title="admin.accounts.cnProviders.noBalanceEndpoint"]').exists()).toBe(false)
       expect(getUsage).not.toHaveBeenCalled()
     }
@@ -341,8 +337,7 @@ describe('AccountUsageCell', () => {
 
     await flushPromises()
 
-    expect(wrapper.find('[data-test="cn-quota-cell"]').exists()).toBe(true)
-    expect(wrapper.find('[data-test="cn-balance-cell"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="cn-usage-cell"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="embedded-ollama"]').exists()).toBe(false)
   })
 
@@ -368,8 +363,7 @@ describe('AccountUsageCell', () => {
 
       // 同一账号只渲染一次 OpenCode 用量单元格
       expect(wrapper.findAll('[data-test="opencode-go-cell"]')).toHaveLength(1)
-      expect(wrapper.find('[data-test="cn-quota-cell"]').exists()).toBe(false)
-      expect(wrapper.find('[data-test="cn-balance-cell"]').exists()).toBe(false)
+      expect(wrapper.find('[data-test="cn-usage-cell"]').exists()).toBe(false)
       expect(wrapper.find('[data-test="embedded-ollama"]').exists()).toBe(false)
       expect(wrapper.find('div[title="admin.accounts.cnProviders.noBalanceEndpoint"]').exists()).toBe(false)
       expect(getUsage).not.toHaveBeenCalled()
@@ -397,7 +391,7 @@ describe('AccountUsageCell', () => {
 
     await flushPromises()
 
-    expect(wrapper.find('[data-test="cn-quota-cell"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="cn-usage-cell"]').exists()).toBe(true)
     expect(wrapper.findAll('[data-test="opencode-go-cell"]')).toHaveLength(0)
   })
 
@@ -419,7 +413,7 @@ describe('AccountUsageCell', () => {
     await flushPromises()
 
     expect(wrapper.findAll('[data-test="opencode-go-cell"]')).toHaveLength(1)
-    expect(wrapper.find('[data-test="cn-quota-cell"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="cn-usage-cell"]').exists()).toBe(false)
     // 用量单元格已渲染时不再叠加 `-` 占位符
     expect(wrapper.text()).not.toContain('-')
   })
@@ -441,8 +435,7 @@ describe('AccountUsageCell', () => {
 
     await flushPromises()
 
-    expect(wrapper.find('[data-test="cn-quota-cell"]').exists()).toBe(true)
-    expect(wrapper.find('[data-test="cn-balance-cell"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="cn-usage-cell"]').exists()).toBe(true)
     expect(wrapper.text()).not.toContain('-')
   })
 
@@ -483,8 +476,7 @@ describe('AccountUsageCell', () => {
 
     await flushPromises()
 
-    expect(wrapper.find('[data-test="cn-quota-cell"]').exists()).toBe(true)
-    expect(wrapper.find('[data-test="cn-balance-cell"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="cn-usage-cell"]').exists()).toBe(true)
     // 子单元格可见时不显示 `-` 占位符（按量账号与订阅账号用同一套单元格）。
     expect(wrapper.text()).not.toContain('-')
   })
