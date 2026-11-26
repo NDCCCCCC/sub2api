@@ -38,15 +38,58 @@ const (
 	opendesignExtraSuffixBalance = "balance_usd"
 )
 
+// opendesignConsoleBaseOverride 测试用：替换控制台基址（httptest server）。
+var opendesignConsoleBaseOverride *string
+
+func opendesignConsoleBaseValue() string {
+	if opendesignConsoleBaseOverride != nil {
+		return *opendesignConsoleBaseOverride
+	}
+	return opendesignConsoleBase
+}
+
+func setOpenDesignConsoleBase(base string) {
+	copy := base
+	opendesignConsoleBaseOverride = &copy
+}
+
 var errOpenDesignInvalidResponse = errors.New("invalid opendesign usage response")
 
+// opendesignAuthCookieName 是 OpenDesign 控制台（better-auth）的会话 cookie 名。
+// amr-api 接受 Cookie 认证；Bearer 形式仅对 vela/控制台 API Key 有效，作为兜底。
+const opendesignAuthCookieName = "__Secure-better-auth.session_token"
+
+// parseOpenDesignConsoleSession 从用户粘贴的内容中提取 better-auth session token 值。
+// 接受三种输入（2026-11-26 实测 cookie 形式认证有效）：
+//  1. 整段浏览器 Cookie 头（含多对；取 __Secure-better-auth.session_token）
+//  2. 单个 "name=value" 对
+//  3. 裸 token 值（原样返回）
+func parseOpenDesignConsoleSession(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	if strings.Contains(raw, ";") || strings.Contains(raw, "\n") {
+		for _, part := range strings.FieldsFunc(raw, func(r rune) bool { return r == ';' || r == '\n' || r == ' ' }) {
+			part = strings.TrimSpace(part)
+			if name, value, ok := strings.Cut(part, "="); ok && strings.Contains(name, "session_token") {
+				return strings.TrimSpace(value)
+			}
+		}
+	}
+	if name, value, ok := strings.Cut(raw, "="); ok && strings.Contains(name, "session_token") && !strings.Contains(name, " ") {
+		return strings.TrimSpace(value)
+	}
+	return raw
+}
+
 // opendesignUsageSupported 报告账号能否查询 OpenDesign 用量：API Key 账号、推理端点
-// 指向官方主机、且配置了控制台 session（credentials.console_session）与 workspace_id。
+// 指向官方主机、且配置了控制台凭据（credentials.console_session；workspace_id 可留空
+// 由 /workspaces 接口自动发现）。
 func (a *Account) opendesignUsageSupported() bool {
 	return a.IsOpenDesign() && a.Type == AccountTypeAPIKey &&
 		isOfficialOpenDesignHost(a.GetOpenAIBaseURL()) &&
-		strings.TrimSpace(a.GetCredential("console_session")) != "" &&
-		strings.TrimSpace(a.GetCredential("workspace_id")) != ""
+		parseOpenDesignConsoleSession(a.GetCredential("console_session")) != ""
 }
 
 // opendesignUsageClient 查询控制台窗口与钱包。
@@ -54,8 +97,8 @@ type opendesignUsageClient struct {
 	cfg          *config.Config
 	httpUpstream HTTPUpstream
 	account      *Account
-	session      string
-	workspace    string
+	session      string // better-auth session token（cookie 形式认证）或 vela/控制台 API Key（Bearer）
+	workspace    string // 空值时经 /workspaces 自动发现
 	proxyURL     string
 }
 
@@ -64,7 +107,7 @@ func newOpenDesignUsageClient(cfg *config.Config, httpUpstream HTTPUpstream, acc
 		cfg:          cfg,
 		httpUpstream: httpUpstream,
 		account:      account,
-		session:      strings.TrimSpace(account.GetCredential("console_session")),
+		session:      parseOpenDesignConsoleSession(account.GetCredential("console_session")),
 		workspace:    strings.TrimSpace(account.GetCredential("workspace_id")),
 		proxyURL:     proxyURL,
 	}
@@ -114,7 +157,7 @@ type opendesignSummaryPayload struct {
 
 // get 请求一个控制台接口并解码 JSON。
 func (c *opendesignUsageClient) get(ctx context.Context, path string, out any) error {
-	target := opendesignConsoleBase + path
+	target := opendesignConsoleBaseValue() + path
 	validatedURL, err := cnValidateProbeURL(c.cfg, target)
 	if err != nil {
 		return infraerrors.New(http.StatusForbidden, "CN_QUOTA_URL_REJECTED", err.Error())
@@ -125,8 +168,7 @@ func (c *opendesignUsageClient) get(ctx context.Context, path string, out any) e
 	if err != nil {
 		return infraerrors.Newf(http.StatusInternalServerError, "CN_QUOTA_REQUEST_BUILD_FAILED", "build request: %v", err)
 	}
-	req.Header.Set("Authorization", "Bearer "+c.session)
-	req.Header.Set("Accept", "application/json")
+	c.applyAuth(req)
 	c.account.ApplyHeaderOverrides(req.Context(), req.Header)
 
 	resp, err := c.httpUpstream.Do(req, c.proxyURL, c.account.ID, maxInt(c.account.Concurrency, 1))
@@ -135,6 +177,22 @@ func (c *opendesignUsageClient) get(ctx context.Context, path string, out any) e
 	}
 	defer func() { _ = resp.Body.Close() }()
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, cnQuotaMaxBodyBytes))
+	// 401 且是 cookie 形式时用 Bearer 兜底重试一次（兼容控制台 API Key 凭据）。
+	if resp.StatusCode == http.StatusUnauthorized && c.sessionHasCookieForm() {
+		_ = resp.Body.Close()
+		retry, err := http.NewRequestWithContext(callCtx, http.MethodGet, validatedURL, nil)
+		if err == nil {
+			retry.Header.Set("Authorization", "Bearer "+c.session)
+			retry.Header.Set("Accept", "application/json")
+			c.account.ApplyHeaderOverrides(req.Context(), retry.Header)
+			resp, err = c.httpUpstream.Do(retry, c.proxyURL, c.account.ID, maxInt(c.account.Concurrency, 1))
+			if err != nil {
+				return fmt.Errorf("upstream request failed: %w", err)
+			}
+			defer func() { _ = resp.Body.Close() }()
+			body, _ = io.ReadAll(io.LimitReader(resp.Body, cnQuotaMaxBodyBytes))
+		}
+	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return &opendesignHTTPError{status: resp.StatusCode, body: truncate(strings.TrimSpace(string(body)), 240)}
 	}
@@ -144,10 +202,77 @@ func (c *opendesignUsageClient) get(ctx context.Context, path string, out any) e
 	return nil
 }
 
-// fetch 取窗口与钱包；summary 失败不阻塞（钱包是展示性数据）。
+// sessionHasCookieForm 报告凭据是否为 better-auth session token（Cookie 形式认证）。
+// cookie 值含一个点分隔的签名段（value.signature），且不含 vela/控制台 API Key 前缀特征。
+func (c *opendesignUsageClient) sessionHasCookieForm() bool {
+	return strings.Contains(c.session, ".") && !strings.HasPrefix(c.session, "vela_")
+}
+
+// applyAuth 设置控制台请求的鉴权头：better-auth session 走 Cookie（2026-11-26 实测
+// Bearer 对 session token 返回 401）；其他值（vela/控制台 API Key）走 Bearer。
+func (c *opendesignUsageClient) applyAuth(req *http.Request) {
+	req.Header.Set("Accept", "application/json")
+	if c.sessionHasCookieForm() {
+		req.Header.Set("Cookie", opendesignAuthCookieName+"="+c.session)
+		return
+	}
+	req.Header.Set("Authorization", "Bearer "+c.session)
+}
+
+// opendesignWorkspaceListPayload 是 /workspaces 响应（workspace 自动发现用）。
+type opendesignWorkspaceListPayload struct {
+	Items []struct {
+		WorkspaceID   string `json:"workspaceId"`
+		WorkspaceName string `json:"workspaceName"`
+		IsDefault     bool   `json:"isDefault"`
+	} `json:"items"`
+}
+
+// resolveWorkspace 返回探测用 workspace ID；凭据未填时经 /workspaces 自动发现
+// （默认工作区优先，个人账号通常只有一个）。
+func (c *opendesignUsageClient) resolveWorkspace(ctx context.Context) (string, error) {
+	if c.workspace != "" {
+		return c.workspace, nil
+	}
+	var list opendesignWorkspaceListPayload
+	if err := c.get(ctx, "/api/v1/workspaces", &list); err != nil {
+		return "", err
+	}
+	return openDesignPickWorkspace(list.Items)
+}
+
+// openDesignPickWorkspace 从工作区列表选探测目标：isDefault 优先，否则首个有效 ID。
+func openDesignPickWorkspace(items []struct {
+	WorkspaceID   string `json:"workspaceId"`
+	WorkspaceName string `json:"workspaceName"`
+	IsDefault     bool   `json:"isDefault"`
+}) (string, error) {
+	best := ""
+	for _, item := range items {
+		if strings.TrimSpace(item.WorkspaceID) == "" {
+			continue
+		}
+		if item.IsDefault {
+			return item.WorkspaceID, nil
+		}
+		if best == "" {
+			best = item.WorkspaceID
+		}
+	}
+	if best == "" {
+		return "", fmt.Errorf("%w: workspace list has no usable id", errOpenDesignInvalidResponse)
+	}
+	return best, nil
+}
+
+// fetch 取窗口与钱包；workspace 未配置时自动发现。summary 失败不阻塞（钱包是展示性数据）。
 func (c *opendesignUsageClient) fetch(ctx context.Context) (*opendesignUsagePayload, *opendesignSummaryPayload, error) {
+	workspace, err := c.resolveWorkspace(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
 	var usage opendesignUsagePayload
-	path := "/api/v1/workspaces/" + url.PathEscape(c.workspace) + "/billing/coding-plan-usage"
+	path := "/api/v1/workspaces/" + url.PathEscape(workspace) + "/billing/coding-plan-usage"
 	if err := c.get(ctx, path, &usage); err != nil {
 		return nil, nil, err
 	}
@@ -303,9 +428,9 @@ func opendesignFetchFailure(err error) (status int, message string, ok bool) {
 // queryOpenDesignUsage 查询 OpenDesign 窗口与钱包，落窗口与余额快照。
 func (s *CNProviderQuotaService) queryOpenDesignUsage(ctx context.Context, account *Account) (*CNProviderQuotaProbeResult, error) {
 	client := newOpenDesignUsageClient(s.cfg, s.httpUpstream, account, s.resolveProxyURL(ctx, account))
-	if client.session == "" || client.workspace == "" {
+	if client.session == "" {
 		return nil, infraerrors.New(http.StatusBadRequest, "CN_QUOTA_NO_SESSION",
-			"account needs console_session and workspace_id credentials for usage probing")
+			"account needs console_session credentials (browser cookie value) for usage probing")
 	}
 	now := time.Now().UTC()
 	result := &CNProviderQuotaProbeResult{
@@ -354,9 +479,9 @@ func (s *CNProviderQuotaService) queryOpenDesignUsage(ctx context.Context, accou
 // queryOpenDesignBalance 只查钱包余额（窗口快照不动）。
 func (s *CNProviderBalanceService) queryOpenDesignBalance(ctx context.Context, account *Account) (*CNProviderBalanceResult, error) {
 	client := newOpenDesignUsageClient(s.cfg, s.httpUpstream, account, s.resolveProxyURL(ctx, account))
-	if client.session == "" || client.workspace == "" {
+	if client.session == "" {
 		return nil, infraerrors.New(http.StatusBadRequest, "CN_BALANCE_NO_SESSION",
-			"account needs console_session and workspace_id credentials for balance probing")
+			"account needs console_session credentials (browser cookie value) for balance probing")
 	}
 	now := time.Now().UTC()
 	_, summary, err := client.fetch(ctx)
