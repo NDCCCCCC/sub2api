@@ -239,6 +239,51 @@
           </div>
           <p class="input-hint mt-2">{{ t('admin.accounts.cnProviders.zhipuTeam.hint') }}</p>
         </div>
+
+        <!-- OpenDesign：控制台 session 与 workspace ID（额度探测用；留空则不做探测） -->
+        <div v-if="account.platform === 'opendesign'" data-testid="edit-opendesign-console">
+          <div class="flex items-center">
+            <label class="input-label">{{ t('admin.accounts.opendesign.console.title') }}</label>
+            <HelpTooltip trigger="click" width-class="w-80">
+              <p class="mb-1 font-medium">{{ t('admin.accounts.opendesign.console.help.title') }}</p>
+              <ol class="list-decimal space-y-1 pl-4">
+                <li>{{ t('admin.accounts.opendesign.console.help.step1') }}</li>
+                <li>{{ t('admin.accounts.opendesign.console.help.step2') }}</li>
+                <li>{{ t('admin.accounts.opendesign.console.help.step3') }}</li>
+              </ol>
+              <p class="mt-2 break-all rounded bg-black/20 p-1.5 font-mono text-[11px] leading-relaxed">
+                {{ t('admin.accounts.opendesign.console.help.example') }}
+              </p>
+            </HelpTooltip>
+          </div>
+          <div class="mt-2 grid gap-4 sm:grid-cols-2">
+            <div>
+              <label class="input-label">{{ t('admin.accounts.opendesign.console.session') }}</label>
+              <input
+                v-model="editOpenDesignConsoleSession"
+                type="text"
+                class="input"
+                :placeholder="openDesignHasStoredSession ? t('admin.accounts.opendesign.console.sessionConfigured') : t('admin.accounts.opendesign.console.sessionPlaceholder')"
+              />
+            </div>
+            <div>
+              <label class="input-label">{{ t('admin.accounts.opendesign.console.workspace') }}</label>
+              <input
+                v-model="editOpenDesignWorkspaceId"
+                type="text"
+                class="input"
+                :placeholder="t('admin.accounts.opendesign.console.workspacePlaceholder')"
+              />
+            </div>
+          </div>
+          <p class="input-hint mt-2">{{ t('admin.accounts.opendesign.console.hint') }}</p>
+          <div v-if="openDesignHasStoredSession && editOpenDesignConsoleSession.trim()" class="mt-2 flex items-center gap-2">
+            <span class="text-xs text-gray-500 dark:text-gray-400">{{ t('admin.accounts.opendesign.console.willReplace') }}</span>
+            <button type="button" class="text-xs text-red-600 hover:underline dark:text-red-400" @click="clearOpenDesignSession">
+              {{ t('admin.accounts.opendesign.console.removeSession') }}
+            </button>
+          </div>
+        </div>
         <div>
           <label class="input-label">{{ t('admin.accounts.apiKey') }}</label>
           <input
@@ -3733,6 +3778,16 @@ function currentOpenCodeOrCNMode(): string {
 // 智谱团队版 Coding Plan：组织/项目 ID，写入 credentials 供额度探测切换团队端点
 const editZhipuOrganization = ref('')
 const editZhipuProject = ref('')
+// OpenDesign 控制台凭据（额度探测用）：session（可整段 Cookie）+ 可选 workspace
+const editOpenDesignConsoleSession = ref('')
+const editOpenDesignWorkspaceId = ref('')
+// 后端已存 console_session（脱敏后仅凭 credentials_status.has_console_session 可知）
+const openDesignHasStoredSession = computed(
+  () => props.account?.platform === 'opendesign' && Boolean(props.account?.credentials_status?.has_console_session)
+)
+function clearOpenDesignSession() {
+  editOpenDesignConsoleSession.value = ''
+}
 const editAdaptiveBaseUrls = ref<Record<CnNativeApiProtocol, string>>({
   chat_completions: '',
   anthropic: '',
@@ -4986,6 +5041,12 @@ const syncFormFromAccount = (newAccount: Account | null) => {
         editZhipuOrganization.value = typeof credentials.zhipu_organization === 'string' ? credentials.zhipu_organization : ''
         editZhipuProject.value = typeof credentials.zhipu_project === 'string' ? credentials.zhipu_project : ''
       }
+      // OpenDesign：workspace_id 非敏感可回填；console_session 已脱敏，输入框留空，
+      // 由 credentials_status.has_console_session 表示已存在。
+      if (newAccount.platform === 'opendesign') {
+        editOpenDesignWorkspaceId.value = typeof credentials.workspace_id === 'string' ? credentials.workspace_id : ''
+        editOpenDesignConsoleSession.value = ''
+      }
       if (providerRoutesByModel(newAccount.platform)) {
         editOpenCodeGoProtocolRules.value =
           parseOpenCodeGoProtocolRules(credentials.protocol_rules) ??
@@ -5789,6 +5850,15 @@ const handleSubmit = async () => {
             delete newCredentials.zhipu_organization
             delete newCredentials.zhipu_project
           }
+        }
+        // OpenDesign 控制台凭据：console_session 是敏感键（后端合并时 incoming 缺省即保留旧值），
+        // 只有用户填了新值才覆盖；workspace_id 非敏感，清空即删除（回落自动发现）。
+        if (props.account.platform === 'opendesign') {
+          const session = editOpenDesignConsoleSession.value.trim()
+          if (session) newCredentials.console_session = session
+          const workspace = editOpenDesignWorkspaceId.value.trim()
+          if (workspace) newCredentials.workspace_id = workspace
+          else delete newCredentials.workspace_id
         }
       }
 

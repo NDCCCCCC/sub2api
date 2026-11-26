@@ -333,6 +333,12 @@ func validateCodingPlanAccount(account *Account) error {
 		}
 		return nil
 	}
+	if account.IsOpenDesign() {
+		if !account.opendesignUsageSupported() {
+			return infraerrors.New(http.StatusBadRequest, "CN_QUOTA_NOT_CODING_PLAN", "opendesign usage is only available for api key accounts on the official host with a console_session configured")
+		}
+		return nil
+	}
 	if account.IsOpenCodeGo() {
 		return infraerrors.New(http.StatusBadRequest, "CN_QUOTA_NOT_CODING_PLAN", "opencode zen accounts have no subscription quota window")
 	}
