@@ -377,6 +377,23 @@ export default {
         balanceLow: '余额不足',
         noBalanceEndpoint: '该平台暂无余额查询接口',
       },
+        opendesign: {
+          console: {
+            title: '控制台凭据（额度探测用）',
+            session: 'Console Session',
+            sessionPlaceholder: 'OpenDesign 控制台的登录 session token',
+            workspace: 'Workspace ID',
+            workspacePlaceholder: '24 位小写字母数字的工作区 ID',
+            hint: '两者仅用于查询 5 小时 / 7 天额度窗口，与推理 API Key 相互独立；留空则不做额度探测。获取方式点击左侧问号查看教程。',
+            help: {
+              title: '如何获取 Console Session 与 Workspace ID',
+              step1: '在已登录 OpenDesign 桌面端或浏览器的电脑上安装 vela CLI（桌面端自带），或登录 open-design.ai 云控制台。',
+              step2: 'Workspace ID：运行 `vela team-projects list`，输出中的 workspaceId 即为工作区 ID（24 位小写字母数字）。',
+              step3: 'Console Session：浏览器登录 open-design.ai 后按 F12，在 Network 中找任意 amr-api.open-design.ai 请求，复制其 Authorization 头中 Bearer 后面的 token 填入。',
+              example: '示例：workspaceId = u4rxi1tpu66f01q6xcdyjdgv；Authorization: Bearer <token> → 冒号后整段为 session',
+            },
+          },
+        },
       opencodeGo: {
         accountMode: {
           zen: 'Zen',

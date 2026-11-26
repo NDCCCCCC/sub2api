@@ -52,6 +52,7 @@ const (
 	PlatformTypeSafe    = domain.PlatformTypeSafe
 	PlatformCommandCode = domain.PlatformCommandCode
 	PlatformCline       = domain.PlatformCline
+	PlatformOpenDesign  = domain.PlatformOpenDesign
 	PlatformComposite   = domain.PlatformComposite
 	// PlatformKiro is retained for unsupported-platform threshold tests and legacy
 	// account rows. Scheduling-threshold evaluation never pauses kiro accounts.
@@ -92,6 +93,8 @@ const (
 	DefaultCommandCodeBaseURL = "https://api.commandcode.ai/provider/v1"
 	// Cline API：只提供 Chat Completions（{base}/chat/completions）与模型列表。
 	DefaultClineBaseURL = "https://api.cline.bot/api/v1"
+	// OpenDesign Cloud：Chat Completions / Responses / models 共用 /v1 基址。
+	DefaultOpenDesignBaseURL = "https://amr-link.open-design.ai/v1"
 )
 
 // 国产供应商 Anthropic 协议端点的默认 base_url（上游路径为 {base}/v1/messages）。
@@ -107,6 +110,8 @@ const (
 	DefaultOpenCodeZenAnthropicBaseURL = "https://opencode.ai/zen"
 	// Command Code 的 Anthropic 端点为 /provider/v1/messages（Claude 系模型只在此端点提供）。
 	DefaultCommandCodeAnthropicBaseURL = "https://api.commandcode.ai/provider"
+	// OpenDesign 的 Anthropic 基址不含 /v1：nativeAnthropicTargetURL 会再拼 /v1/messages。
+	DefaultOpenDesignAnthropicBaseURL = "https://amr-link.open-design.ai"
 )
 
 // IsCNProvider 报告 platform 是否为国产 OpenAI 兼容供应商（kimi/zhipu/deepseek/minimax），

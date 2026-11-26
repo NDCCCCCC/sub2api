@@ -419,7 +419,7 @@ func TestShouldEmulateWebSearchFor_AccountChannelModes(t *testing.T) {
 	settingSvc := newSettingServiceForWebSearchTest(true)
 	groupID := int64(42)
 	platforms := []string{
-		PlatformOpenAI, PlatformAnthropic, PlatformZhipu, PlatformCommandCode, PlatformOpenCodeGo, PlatformMiniMax,
+		PlatformOpenAI, PlatformAnthropic, PlatformZhipu, PlatformCommandCode, PlatformOpenCodeGo, PlatformMiniMax, PlatformOpenDesign,
 	}
 	for _, platform := range platforms {
 		for _, accountType := range []string{AccountTypeAPIKey, AccountTypeOAuth, AccountTypeSetupToken} {

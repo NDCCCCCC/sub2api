@@ -245,6 +245,7 @@ func (s *CNProviderBalanceCheckService) collectAccountProbeTargets() []accountPr
 		check     accountProbeCheck
 	}{
 		{PlatformCommandCode, (*Account).commandCodeUsageSupported, s.checkCommandCode},
+		{PlatformOpenDesign, (*Account).opendesignUsageSupported, s.checkOpenDesign},
 		{PlatformCline, (*Account).clineAccountAPISupported, s.checkCline},
 	} {
 		accounts, err := s.accountRepo.ListByPlatform(context.Background(), p.platform)
@@ -278,6 +279,19 @@ func (s *CNProviderBalanceCheckService) checkCommandCode(ctx context.Context, ac
 		return cnBalanceNoChange
 	}
 	return s.applyBalanceResult(ctx, account, result.Balance, threshold)
+}
+
+// checkOpenDesign 探测 OpenDesign 窗口与钱包；窗口是硬上限，余额仅供参考不参与停调。
+func (s *CNProviderBalanceCheckService) checkOpenDesign(ctx context.Context, account *Account, _ float64) cnBalanceCheckOutcome {
+	result, err := s.quotaService.QueryUsage(ctx, account.ID)
+	if err != nil {
+		log.Printf("[CNBalance] opendesign usage account %d failed: %v", account.ID, err)
+		return cnBalanceNoChange
+	}
+	if result != nil && !result.Success && result.Error != "" {
+		log.Printf("[CNBalance] opendesign usage account %d error: %s", account.ID, result.Error)
+	}
+	return cnBalanceNoChange
 }
 
 // checkCline 探测 Cline 窗口与积分；钱包冷却在探测中按结果设置或解除，不停整个账号。

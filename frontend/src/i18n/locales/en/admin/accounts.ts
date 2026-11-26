@@ -164,6 +164,23 @@ export default {
         balanceLow: 'Insufficient balance',
         noBalanceEndpoint: 'This platform has no balance query endpoint',
       },
+        opendesign: {
+          console: {
+            title: 'Console credentials (for usage probing)',
+            session: 'Console Session',
+            sessionPlaceholder: 'Login session token of the OpenDesign console',
+            workspace: 'Workspace ID',
+            workspacePlaceholder: '24-char lowercase alphanumeric workspace ID',
+            hint: 'Used only to query the 5-hour / 7-day quota windows, independent of the inference API key; leave empty to skip usage probing. Click the question mark for how to obtain them.',
+            help: {
+              title: 'How to get the Console Session and Workspace ID',
+              step1: 'On a machine with the signed-in OpenDesign desktop app (bundled vela CLI) or log in to the open-design.ai cloud console.',
+              step2: 'Workspace ID: run `vela team-projects list`; the workspaceId in the output is the workspace ID (24-char lowercase alphanumeric).',
+              step3: 'Console Session: after signing in to open-design.ai, press F12, find any amr-api.open-design.ai request in Network, and copy the token after "Bearer " in its Authorization header.',
+              example: 'Example: workspaceId = u4rxi1tpu66f01q6xcdyjdgv; Authorization: Bearer <token> → the whole token is the session',
+            },
+          },
+        },
       opencodeGo: {
         accountMode: {
           zen: 'Zen',

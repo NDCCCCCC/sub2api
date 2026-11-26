@@ -221,6 +221,23 @@ var providerProfiles = map[string]*ProviderProfile{
 			},
 		},
 	},
+	PlatformOpenDesign: {
+		Platform:         PlatformOpenDesign,
+		DefaultMode:      AccountModePayG,
+		Routing:          ProviderRoutingByInbound,
+		DefaultTestModel: DefaultOpenDesignTestModel,
+		// 推理 Key 通用（控制台 API Key / vela runtime key 同值），三协议同主机：
+		// Chat Completions / Responses 在 {base}/v1，Anthropic 在 {base}/v1/messages。
+		Modes: map[string]ProviderEndpoints{
+			AccountModePayG: {
+				BaseURLs: map[string]string{
+					APIProtocolChatCompletions: DefaultOpenDesignBaseURL,
+					APIProtocolResponses:       DefaultOpenDesignBaseURL,
+					APIProtocolAnthropic:       DefaultOpenDesignAnthropicBaseURL,
+				},
+			},
+		},
+	},
 }
 
 // LookupProviderProfile 返回 platform 对应的多协议供应商 profile；非此类平台返回 nil。

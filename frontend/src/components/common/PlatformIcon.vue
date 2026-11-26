@@ -71,6 +71,11 @@
     <rect x="65.5996" y="44.8008" width="9.6" height="28.8" rx="4.8" />
     <rect x="36.8008" y="44.8008" width="9.6" height="28.8" rx="4.8" />
   </svg>
+  <!-- OpenDesign：画布上的光标+圆点，呼应设计工作台定位（open-design.ai 无公开 favicon path） -->
+  <svg v-else-if="platform === 'opendesign'" :class="sizeClass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <rect x="3" y="3" width="18" height="18" rx="3" />
+    <path stroke-linecap="round" stroke-linejoin="round" d="m8 12 4-4 4 4-4 4z" fill="currentColor" stroke="none" />
+  </svg>
   <!-- Composite group icon -->
   <svg v-else-if="platform === 'composite'" :class="sizeClass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
     <circle cx="6" cy="12" r="3" />

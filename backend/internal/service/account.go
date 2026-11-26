@@ -1704,6 +1704,12 @@ func (a *Account) GetCodingPlanProvider() string {
 		}
 		return ""
 	}
+	if a.IsOpenDesign() {
+		if a.opendesignUsageSupported() {
+			return PlatformOpenDesign
+		}
+		return ""
+	}
 	if a.IsCline() {
 		if a.clineAccountAPISupported() {
 			return PlatformCline
@@ -2464,7 +2470,7 @@ func (a *Account) GetWebSearchEmulationMode() string {
 // with WEB_SEARCH_EMULATION_PLATFORMS in frontend/src/views/admin/ChannelsView.vue.
 func webSearchEmulationPlatformEnabled(platform string) bool {
 	switch platform {
-	case PlatformAnthropic, PlatformOpenAI, PlatformZhipu, PlatformCommandCode, PlatformOpenCodeGo, PlatformMiniMax:
+	case PlatformAnthropic, PlatformOpenAI, PlatformZhipu, PlatformCommandCode, PlatformOpenCodeGo, PlatformMiniMax, PlatformOpenDesign:
 		return true
 	}
 	return false

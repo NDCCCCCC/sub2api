@@ -671,6 +671,7 @@ const WEB_SEARCH_EMULATION_PLATFORMS: ReadonlySet<string> = new Set([
   'opencode_go',
   'minimax',
   'zhipu',
+  'opendesign',
 ])
 
 const webSearchGlobalEnabled = ref(false)

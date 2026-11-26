@@ -126,6 +126,9 @@ func (s *CNProviderBalanceService) queryBalanceForAccount(ctx context.Context, a
 	if account.IsCommandCode() {
 		return s.queryCommandCodeBalance(ctx, account)
 	}
+	if account.IsOpenDesign() {
+		return s.queryOpenDesignBalance(ctx, account)
+	}
 	if account.IsCline() {
 		return s.queryClineBalance(ctx, account)
 	}
@@ -283,6 +286,13 @@ func validatePayGAccount(account *Account) error {
 	if account.IsCommandCode() {
 		if !account.commandCodeUsageSupported() {
 			return infraerrors.New(http.StatusBadRequest, "CN_BALANCE_NO_ENDPOINT", "command code balance is only available for api key accounts on the official host")
+		}
+		return nil
+	}
+	// OpenDesign 钱包余额与套餐窗口同源（控制台 session），只查官方主机。
+	if account.IsOpenDesign() {
+		if !account.opendesignUsageSupported() {
+			return infraerrors.New(http.StatusBadRequest, "CN_BALANCE_NO_ENDPOINT", "opendesign balance is only available for api key accounts on the official host with console_session and workspace_id configured")
 		}
 		return nil
 	}

@@ -139,6 +139,9 @@ func (s *CNProviderQuotaService) queryUsageForAccount(ctx context.Context, accou
 	if provider == PlatformCommandCode {
 		return s.queryCommandCodeUsage(ctx, account)
 	}
+	if provider == PlatformOpenDesign {
+		return s.queryOpenDesignUsage(ctx, account)
+	}
 	if provider == PlatformCline {
 		return s.queryClineUsage(ctx, account)
 	}

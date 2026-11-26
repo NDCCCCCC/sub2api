@@ -734,6 +734,35 @@
         <p class="input-hint mt-2">{{ t('admin.accounts.cnProviders.zhipuTeam.hint') }}</p>
       </div>
 
+      <!-- OpenDesign：控制台 session 与 workspace ID（额度探测用，推理走上方 API Key） -->
+      <div v-if="form.platform === 'opendesign'" class="mt-4">
+        <div class="flex items-center">
+          <label class="input-label">{{ t('admin.accounts.opendesign.console.title') }}</label>
+          <HelpTooltip trigger="click" width-class="w-80">
+            <p class="mb-1 font-medium">{{ t('admin.accounts.opendesign.console.help.title') }}</p>
+            <ol class="list-decimal space-y-1 pl-4">
+              <li>{{ t('admin.accounts.opendesign.console.help.step1') }}</li>
+              <li>{{ t('admin.accounts.opendesign.console.help.step2') }}</li>
+              <li>{{ t('admin.accounts.opendesign.console.help.step3') }}</li>
+            </ol>
+            <p class="mt-2 break-all rounded bg-black/20 p-1.5 font-mono text-[11px] leading-relaxed">
+              {{ t('admin.accounts.opendesign.console.help.example') }}
+            </p>
+          </HelpTooltip>
+        </div>
+        <div class="mt-2 grid gap-4 sm:grid-cols-2">
+          <div>
+            <label class="input-label">{{ t('admin.accounts.opendesign.console.session') }}</label>
+            <input v-model="openDesignConsoleSession" type="text" class="input" :placeholder="t('admin.accounts.opendesign.console.sessionPlaceholder')" />
+          </div>
+          <div>
+            <label class="input-label">{{ t('admin.accounts.opendesign.console.workspace') }}</label>
+            <input v-model="openDesignWorkspaceId" type="text" class="input" :placeholder="t('admin.accounts.opendesign.console.workspacePlaceholder')" />
+          </div>
+        </div>
+        <p class="input-hint mt-2">{{ t('admin.accounts.opendesign.console.hint') }}</p>
+      </div>
+
       <!-- Account Type Selection (Gemini) -->
       <div v-if="form.platform === 'gemini'">
         <div class="flex items-center justify-between">
@@ -4463,6 +4492,9 @@ const openCodeGoProtocolRules = ref<OpenCodeGoProtocolRule[]>(
 // 智谱团队版 Coding Plan：组织/项目 ID，写入 credentials 供额度探测切换团队端点
 const zhipuOrganization = ref('')
 const zhipuProject = ref('')
+// OpenDesign 额度探测凭据：控制台 session（与推理 API Key 相互独立）+ workspace ID
+const openDesignConsoleSession = ref('')
+const openDesignWorkspaceId = ref('')
 const adaptiveBaseUrls = ref<Record<CnNativeApiProtocol, string>>({
   chat_completions: '',
   anthropic: '',
@@ -6235,6 +6267,11 @@ const handleSubmit = async () => {
     if (form.platform === 'zhipu' && accountMode.value === 'coding') {
       if (zhipuOrganization.value.trim()) credentials.zhipu_organization = zhipuOrganization.value.trim()
       if (zhipuProject.value.trim()) credentials.zhipu_project = zhipuProject.value.trim()
+    }
+    // OpenDesign：控制台 session 与 workspace ID 写入凭据（非空才写，后端探测必需）
+    if (form.platform === 'opendesign') {
+      if (openDesignConsoleSession.value.trim()) credentials.console_session = openDesignConsoleSession.value.trim()
+      if (openDesignWorkspaceId.value.trim()) credentials.workspace_id = openDesignWorkspaceId.value.trim()
     }
     if (providerRoutesByModel(form.platform)) {
       applyOpenCodeGoProtocolRules(credentials, openCodeGoProtocolRules.value, 'create')
